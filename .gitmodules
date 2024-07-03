@@ -1,3 +1,6 @@
 [submodule "blot"]
 	path = blot
 	url = https://github.com/hackclub/blot.git
+[submodule "hand"]
+	path = hand
+	url = https://github.com/sjvasquez/handwriting-synthesis

@@ -1,6 +1,7 @@
 import { createHaxidraw } from "./blot/src/haxidraw/createHaxidraw.js";
 import { createNodeSerialBuffer } from "./blot/src/haxidraw/createNodeSerialBuffer.js";
 import { SerialPort, SerialPortMock } from "serialport";
+import { floatsToBytes } from "./blot/src/haxidraw/converters.js";
 
 // Modified from blot/headless-blot/server.js
 const config = {
@@ -38,6 +39,11 @@ haxidraw.penDown = async function () {
   await haxidraw.servo(1700);
 };
 
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
 process.on("SIGINT", async function () {
   await haxidraw.penUp();
 
@@ -48,6 +54,7 @@ await haxidraw.penUp();
 await haxidraw.goTo(0, 0);
 
 await haxidraw.penDown();
+await sleep(1000);
 await haxidraw.goTo(0, 0);
 await haxidraw.goTo(0, 100);
 await haxidraw.goTo(100, 100);
