@@ -10,6 +10,10 @@
   "type": "module",
   "license": "ISC",
   "dependencies": {
-    "serialport": "^12.0.0"
+    "chokidar": "^3.6.0",
+    "flatten-svg": "^0.3.0",
+    "jsdom": "^24.1.0",
+    "serialport": "^12.0.0",
+    "svgdom": "^0.1.19"
   }
 }

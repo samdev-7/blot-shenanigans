@@ -1,7 +1,10 @@
 import { createHaxidraw } from "./blot/src/haxidraw/createHaxidraw.js";
 import { createNodeSerialBuffer } from "./blot/src/haxidraw/createNodeSerialBuffer.js";
 import { SerialPort, SerialPortMock } from "serialport";
-import { floatsToBytes } from "./blot/src/haxidraw/converters.js";
+import * as chokidar from "chokidar";
+import * as fs from "fs/promises";
+import { flattenSVG } from "flatten-svg";
+import { Window } from "svgdom";
 
 // Modified from blot/headless-blot/server.js
 const config = {
@@ -44,22 +47,26 @@ const sleep = (ms) =>
     setTimeout(resolve, ms);
   });
 
-process.on("SIGINT", async function () {
-  await haxidraw.penUp();
+// process.on("SIGINT", async function () {
+//   await haxidraw.penUp();
+//   await haxidraw.goTo([0, 0]);
 
-  process.exit();
+//   process.exit();
+// });
+
+let queue = [];
+
+chokidar.watch("img/*.svg").on("add", async (path) => {
+  console.log("New file added", path);
+  if (!path.endsWith(".svg")) {
+    return;
+  }
+
+  // read the file
+  const data = (await fs.readFile(path)).toString();
+  // const dom = new JSDOM(data);
+  // const window = new Window();
+  // svg.createSVGPoint();
+  // console.log(data);
+  // console.log(flattenSVG(svg));
 });
-
-await haxidraw.penUp();
-await haxidraw.goTo(0, 0);
-
-await haxidraw.penDown();
-await sleep(1000);
-await haxidraw.goTo(0, 0);
-await haxidraw.goTo(0, 100);
-await haxidraw.goTo(100, 100);
-await haxidraw.goTo(100, 0);
-await haxidraw.goTo(0, 0);
-await haxidraw.penUp();
-
-process.exit();
