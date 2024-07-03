@@ -1,0 +1,15 @@
+{
+  "name": "blot-shenanigans",
+  "version": "1.0.0",
+  "description": "cool blot stuff!",
+  "main": "control.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "dependencies": {
+    "serialport": "^12.0.0"
+  }
+}
