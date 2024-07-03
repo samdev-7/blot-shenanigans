@@ -1,0 +1,3 @@
+[submodule "blot"]
+	path = blot
+	url = https://github.com/hackclub/blot.git
