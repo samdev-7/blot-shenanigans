@@ -97,6 +97,7 @@ ctx.stroke();
 var Engine = Matter.Engine,
   Render = Matter.Render,
   Runner = Matter.Runner,
+  Body = Matter.Body,
   Bodies = Matter.Bodies,
   Vertices = Matter.Vertices,
   Vector = Matter.Vector,
@@ -122,6 +123,43 @@ boundaryPoints = boundaryPoints.map((p) => {
   return { x: p[0], y: p[1] };
 });
 
+let normals = boundaryPoints.map((p, i) => {
+  let next = boundaryPoints[(i + 1) % boundaryPoints.length];
+  let normal = Vector.normalise(Vector.perp(Vector.sub(next, p)));
+  return normal;
+});
+
+normals = normals.map((n) => {
+  return { x: -n.x, y: -n.y };
+});
+
+// draw normals
+ctx.strokeStyle = "blue";
+ctx.beginPath();
+boundaryPoints.forEach((p, i) => {
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x + normals[i].x * 10, p.y + normals[i].y * 10);
+});
+ctx.stroke();
+
+// move each point by the normal 10 units
+boundaryPoints = boundaryPoints.map((p, i) => {
+  return Vector.add(p, Vector.mult(normals[i], 10));
+});
+
+console.log(boundaryPoints);
+
+ctx.strokeStyle = "green";
+
+ctx.beginPath();
+boundaryPoints.forEach((points) => {
+  //   console.log(points);
+  // draw a point at each point
+  ctx.lineTo(points.x, points.y);
+});
+ctx.closePath();
+ctx.stroke();
+
 // create a renderer
 var render = Render.create({
   canvas: document.getElementById("pcanvas"),
@@ -135,8 +173,8 @@ var topWall = Bodies.rectangle(400, 0, 750, 50, {
   isStatic: true,
 });
 // var bottomWall = Bodies.rectangle(400, 600, 750, 50, { isStatic: true });
-var leftWall = Bodies.rectangle(0, 300, 50, 550, { isStatic: true });
-var rightWall = Bodies.rectangle(800, 300, 50, 550, { isStatic: true });
+var leftWall = Bodies.rectangle(0, 300, 50, 600, { isStatic: true });
+var rightWall = Bodies.rectangle(800, 300, 50, 600, { isStatic: true });
 
 // find the width of the text from the boundary points and set textWidth
 let textWidth = Math.abs(
@@ -153,7 +191,7 @@ let textMaxX = 800 - textWidth / 2 - 50;
 
 console.log(textMinX, textMaxX);
 
-var text = Bodies.fromVertices(randomX(), 600, boundaryPoints);
+var text;
 
 console.log(textWidth);
 
@@ -162,7 +200,7 @@ Composite.add(engine.world, [
   //   boxA,
   //   boxB,
   //   boxC,
-  text,
+  //   text,
   topWall,
   //   bottomWall,
   leftWall,
@@ -182,7 +220,9 @@ let ticks = 0;
 let running = false;
 
 function addText() {
-  text = Bodies.fromVertices(randomX(), 600, boundaryPoints);
+  text = Bodies.fromVertices(randomX(), 550, boundaryPoints, { friction: 0 });
+  Body.setVelocity(text, { x: Math.random() * 20 - 10, y: 0 });
+  Body.setAngularVelocity(text, Math.random() - 0.5);
   Composite.add(engine.world, [text]);
 }
 
@@ -201,6 +241,9 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.key === "s") {
     let start = Date.now();
+    let ticks = 0;
+    addText();
+
     while (true) {
       ticks++;
       // console.log("tick");
@@ -212,7 +255,6 @@ window.addEventListener("keydown", (e) => {
       if ((Math.max(velText) < 1e-12 && ticks > 100) || ticks > 1000) {
         text.isStatic = true;
 
-        addText();
         break;
       }
     }
