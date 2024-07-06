@@ -55,19 +55,24 @@ let ticks = 0;
 
 // Runner.run(runner, engine);
 
-// run the engine
-let start = Date.now();
-while (true) {
-  ticks++;
-  console.log(ticks);
-  Runner.tick(runner, engine, 1000 / 60);
-  let velA = Vector.magnitude(boxA.velocity);
-  let velB = Vector.magnitude(boxB.velocity);
-  if ((Math.max(velA, velB) < 1e-12 && ticks > 100) || ticks > 1000) {
-    break;
+window.addEventListener("keydown", (e) => {
+  let start = Date.now();
+  while (true) {
+    ticks++;
+    console.log(ticks);
+    Runner.tick(runner, engine, 1000 / 60);
+    let velA = Vector.magnitude(boxA.velocity);
+    let velB = Vector.magnitude(boxB.velocity);
+    let velC = Vector.magnitude(circleA.velocity);
+    if ((Math.max(velA, velB, velC) < 1e-12 && ticks > 100) || ticks > 1000) {
+      break;
+    }
   }
-}
-console.log("took", Date.now() - start, "ms.", "ticks", ticks);
+
+  console.log("took", Date.now() - start, "ms.", "ticks", ticks);
+});
+
+// run the engine
 
 // setTimeout(
 //   () =>
@@ -83,3 +88,5 @@ console.log("took", Date.now() - start, "ms.", "ticks", ticks);
 //     }, 100),
 //   1000
 // );
+
+document.querySelector("svg").querySelector("path");
