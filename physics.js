@@ -164,17 +164,22 @@ ctx.stroke();
 var render = Render.create({
   canvas: document.getElementById("pcanvas"),
   engine: engine,
+  options: {
+    width: 1200,
+    height: 1200,
+  },
 });
 // create two boxes and a ground
 // var boxA = Bodies.rectangle(400, 300, 80, 80, { friction: 1 });
 // var boxB = Bodies.rectangle(440, 500, 80, 80, { friction: 1 });
 // var boxC = Bodies.rectangle(520, 400, 80, 80, { friction: 1 });
-var topWall = Bodies.rectangle(400, 0, 750, 50, {
+var topWall = Bodies.rectangle(600, -25, 1200, 50, {
   isStatic: true,
+  friction: 0.5,
 });
 // var bottomWall = Bodies.rectangle(400, 600, 750, 50, { isStatic: true });
-var leftWall = Bodies.rectangle(0, 300, 50, 600, { isStatic: true });
-var rightWall = Bodies.rectangle(800, 300, 50, 600, { isStatic: true });
+var leftWall = Bodies.rectangle(-25, 600, 50, 1200, { isStatic: true });
+var rightWall = Bodies.rectangle(1200 + 25, 600, 50, 1200, { isStatic: true });
 
 // find the width of the text from the boundary points and set textWidth
 let textWidth = Math.abs(
@@ -187,7 +192,7 @@ function randomX() {
 }
 
 let textMinX = 0 + textWidth / 2 + 50;
-let textMaxX = 800 - textWidth / 2 - 50;
+let textMaxX = 1200 - textWidth / 2 - 50;
 
 console.log(textMinX, textMaxX);
 
@@ -219,11 +224,79 @@ let ticks = 0;
 
 let running = false;
 
+let count = 0;
+
 function addText() {
-  text = Bodies.fromVertices(randomX(), 550, boundaryPoints, { friction: 0 });
-  Body.setVelocity(text, { x: Math.random() * 20 - 10, y: 0 });
+  text = Bodies.fromVertices(randomX(), 1150, boundaryPoints, {
+    friction: 0.3,
+  });
+  Body.setVelocity(text, { x: Math.random() * 50 - 25, y: 0 });
   Body.setAngularVelocity(text, Math.random() - 0.5);
+
+  let centroid = text.vertices.reduce(
+    (a, b) => {
+      return { x: a.x + b.x, y: a.y + b.y };
+    },
+    { x: 0, y: 0 }
+  );
+  centroid = {
+    x: centroid.x / text.vertices.length,
+    y: centroid.y / text.vertices.length,
+  };
+  Body.setCentre(text, centroid);
+
   Composite.add(engine.world, [text]);
+  count++;
+}
+
+function inSpace(body) {
+  let vertices = body.vertices;
+  return vertices.every((v) => {
+    return v.x >= 0 - 1 && v.x <= 1200 + 1 && v.y >= 0 - 1 && v.y <= 1200 + 1;
+  });
+}
+
+function sprint(iter = 0) {
+  let start = Date.now();
+  let ticks = 0;
+  addText();
+
+  while (true) {
+    ticks++;
+    Runner.tick(runner, engine, 1000 / 60);
+    // let velA = Vector.magnitude(boxA.velocity);
+    // let velB = Vector.magnitude(boxB.velocity);
+    // let velC = Vector.magnitude(boxC.velocity);
+    let velText = Vector.magnitude(text.velocity);
+    if ((Math.max(velText) < 1e-3 && ticks > 100) || ticks > 10000) {
+      text.isStatic = true;
+      break;
+    }
+  }
+
+  console.log(count, "took", Date.now() - start, "ms. ticks", ticks);
+
+  // if (count > 10) {
+  //   Composite.remove(engine.world, text);d
+  //   return false;
+  // }
+
+  if (!inSpace(text)) {
+    console.log("out of space retrying after", iter);
+    Composite.remove(engine.world, text);
+    count--;
+    if (iter > 10) {
+      console.log("out of space", iter);
+      return false;
+    }
+    return sprint(iter + 1);
+  }
+
+  return {
+    x: text.position.x,
+    y: text.position.y,
+    angle: text.angle,
+  };
 }
 
 window.addEventListener("keydown", (e) => {
@@ -240,26 +313,141 @@ window.addEventListener("keydown", (e) => {
     addText();
   }
   if (e.key === "s") {
-    let start = Date.now();
-    let ticks = 0;
-    addText();
-
+    sprint();
+  }
+  if (e.key === "d") {
+    let shapes = [];
+    let startTime = Date.now();
+    let vertices;
     while (true) {
-      ticks++;
-      // console.log("tick");
-      Runner.tick(runner, engine, 1000 / 60);
-      // let velA = Vector.magnitude(boxA.velocity);
-      // let velB = Vector.magnitude(boxB.velocity);
-      // let velC = Vector.magnitude(boxC.velocity);
-      let velText = Vector.magnitude(text.velocity);
-      if ((Math.max(velText) < 1e-12 && ticks > 100) || ticks > 1000) {
-        text.isStatic = true;
-
+      vertices = sprint();
+      if (vertices === false) {
         break;
+      } else {
+        shapes.push(vertices);
       }
     }
 
-    console.log("took", Date.now() - start, "ms.", "ticks", ticks);
+    shapes = Composite.allBodies(engine.world).map((body) => {
+      return {
+        x: body.position.x,
+        y: body.position.y,
+        angle: body.angle,
+        vertices: body.vertices,
+      };
+    });
+
+    console.log("total time", Date.now() - startTime);
+    console.log(shapes);
+
+    // find the centroid of boundaryPoints
+    let center = boundaryPoints.reduce(
+      (a, b) => {
+        return { x: a.x + b.x, y: a.y + b.y };
+      },
+      { x: 0, y: 0 }
+    );
+    center = {
+      x: center.x / boundaryPoints.length,
+      y: center.y / boundaryPoints.length,
+    };
+
+    console.log(center);
+    // originate pointArrays
+    let originated = pointArrays.map((point) => {
+      return { x: point[0] - center.x, y: point[1] - center.y };
+    });
+    console.log(originated);
+
+    let originatedBoundary = boundaryPoints.map((point) => {
+      return { x: point.x - center.x, y: point.y - center.y };
+    });
+
+    let canvas = document.getElementById("rcanvas");
+    /** @type {CanvasRenderingContext2D} */
+    let ctx = canvas.getContext("2d");
+
+    // draw a circle at the origin
+    ctx.beginPath();
+    ctx.arc(0, 0, 0.1, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    shapes.forEach((shape) => {
+      console.log("shape", shape);
+      // move to the center of the shape
+      let transformed = originated.map((point) => {
+        return { x: point.x + shape.x, y: point.y + shape.y };
+      });
+      let transformedBoundary = originatedBoundary.map((point) => {
+        return { x: point.x + shape.x, y: point.y + shape.y };
+      });
+      let transformedCenter = { x: shape.x, y: shape.y };
+
+      // rotate by the angle around the center
+      transformed = transformed.map((point) => {
+        let angle = shape.angle;
+        return {
+          x:
+            Math.cos(angle) * (point.x - transformedCenter.x) -
+            Math.sin(angle) * (point.y - transformedCenter.y) +
+            transformedCenter.x,
+          y:
+            Math.sin(angle) * (point.x - transformedCenter.x) +
+            Math.cos(angle) * (point.y - transformedCenter.y) +
+            transformedCenter.y,
+        };
+      });
+      transformedBoundary = transformedBoundary.map((point) => {
+        let angle = shape.angle;
+        return {
+          x:
+            Math.cos(angle) * (point.x - transformedCenter.x) -
+            Math.sin(angle) * (point.y - transformedCenter.y) +
+            transformedCenter.x,
+          y:
+            Math.sin(angle) * (point.x - transformedCenter.x) +
+            Math.cos(angle) * (point.y - transformedCenter.y) +
+            transformedCenter.y,
+        };
+      });
+
+      console.log(transformed);
+
+      // draw on canvas as small circles
+      ctx.strokeStyle = "black";
+      transformed.forEach((point) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 0.1, 0, 2 * Math.PI);
+        ctx.stroke();
+      });
+      // draw the boundary
+      ctx.strokeStyle = "green";
+      ctx.beginPath();
+      transformedBoundary.forEach((points) => {
+        //   console.log(points);
+        // draw a point at each point
+        ctx.lineTo(points.x, points.y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+
+      // draw the center
+      ctx.strokeStyle = "red";
+      ctx.beginPath();
+      ctx.arc(transformedCenter.x, transformedCenter.y, 1, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // draw the vertices
+      ctx.strokeStyle = "blue";
+      ctx.beginPath();
+      shape.vertices.forEach((points) => {
+        //   console.log(points);
+        // draw a point at each point
+        ctx.lineTo(points.x, points.y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+    });
   }
 });
 
