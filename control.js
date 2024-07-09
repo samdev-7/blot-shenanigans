@@ -13,13 +13,14 @@ import { bounds } from "./blot/src/drawingToolkit/bounds.js";
 import { toolkit } from "./blot/src/drawingToolkit/toolkit.js";
 import { simplify } from "./blot/src/drawingToolkit/simplify.js";
 import Matter from "matter-js";
+import { transform } from "./blot/src/drawingToolkit/transform.js";
 // import { flattenSVG } from "./blot/src/drawingToolkit/flatten-svg/index.js";
 
 const BLOT_PATH = "COM3"; // change to the port your Blot is connected to
 const SCALE_FACTOR = 0.2; // how big the drawing should be (0.2 is 20% of the svg size)
 // Available space to draw
-const WIDTH = 120;
-const HEIGHT = 120;
+const WIDTH = 115;
+const HEIGHT = 115;
 
 // Modified from blot/headless-blot/server.js
 const config = {
@@ -207,6 +208,25 @@ chokidar.watch("img/*.svg").on("add", async (path) => {
   // Compute the convex hull
   let boundaryPoints = graham_scan(lines.flat());
 
+  let centroid = boundaryPoints.reduce(
+    (a, b) => {
+      return [a[0] + b[0], a[1] + b[1]];
+    },
+    [0, 0]
+  );
+  centroid = [
+    centroid[0] / boundaryPoints.length,
+    centroid[1] / boundaryPoints.length,
+  ];
+
+  lines = lines.map((line) =>
+    line.map((pt) => [pt[0] - centroid[0], pt[1] - centroid[1]])
+  );
+  boundaryPoints = boundaryPoints.map((pt) => [
+    pt[0] - centroid[0],
+    pt[1] - centroid[1],
+  ]);
+
   // Compute the normals of each boundary point
   let normals = boundaryPoints.map((pt, i) => {
     let next = boundaryPoints[(i + 1) % boundaryPoints.length];
@@ -333,35 +353,89 @@ chokidar.watch("img/*.svg").on("add", async (path) => {
   }
   console.log("Computed position in", Date.now() - sprintStart, "ms");
 
-  // move the boundary points to the center of the drawing
-  boundaryPoints = boundaryPoints.map((pt) => [
-    pt[0] + WIDTH / 2,
-    pt[1] + HEIGHT / 2,
-  ]);
+  let newBoundary = physShape.vertices.map((pt) => [pt.x, pt.y]);
+  let newCenter = [physShape.position.x, physShape.position.y];
 
-  // move the lines to the center of the drawing
-  lines = lines.map((line) =>
-    line.map((pt) => [pt[0] + WIDTH / 2, pt[1] + HEIGHT / 2])
+  let originalCenter = boundaryPoints.reduce(
+    (a, b) => {
+      return [a[0] + b[0], a[1] + b[1]];
+    },
+    [0, 0]
   );
-
-  // The outline of the drawing
-  let outline = [
-    [0, 0],
-    [WIDTH, 0],
-    [WIDTH, HEIGHT],
-    [0, HEIGHT],
-    [0, 0],
+  originalCenter = [
+    originalCenter[0] / lines.flat().length,
+    originalCenter[1] / lines.flat().length,
   ];
 
+  let dx = newCenter[0] - originalCenter[0];
+  let dy = newCenter[1] - originalCenter[1];
+
+  let transformedLines = lines.map((line) =>
+    line.map((pt) => [pt[0] + dx, pt[1] + dy])
+  );
+  let transformedBoundary = boundaryPoints.map((pt) => [
+    pt[0] + dx,
+    pt[1] + dy,
+  ]);
+  let angle = physShape.angle;
+  transformedBoundary = transformedBoundary.map((pt) => {
+    return [
+      Math.cos(angle) * (pt[0] - newCenter[0]) -
+        Math.sin(angle) * (pt[1] - newCenter[1]) +
+        newCenter[0],
+      Math.sin(angle) * (pt[0] - newCenter[0]) +
+        Math.cos(angle) * (pt[1] - newCenter[1]) +
+        newCenter[1],
+    ];
+  });
+  transformedLines = transformedLines.map((line) =>
+    line.map((pt) => {
+      return [
+        Math.cos(angle) * (pt[0] - newCenter[0]) -
+          Math.sin(angle) * (pt[1] - newCenter[1]) +
+          newCenter[0],
+        Math.sin(angle) * (pt[0] - newCenter[0]) +
+          Math.cos(angle) * (pt[1] - newCenter[1]) +
+          newCenter[1],
+      ];
+    })
+  );
+  // transformedLines = transformedLines.map((line) =>
+  //   line.map((pt) => [pt[0], HEIGHT - pt[1]])
+  // );
+  // transformedBoundary = transformedBoundary.map((pt) => [
+  //   pt[0],
+  //   HEIGHT - pt[1],
+  // ]);
+  // newBoundary = newBoundary.map((pt) => [pt[0], HEIGHT - pt[1]]);
+
   // Add the lines to the queue
+  queue.push([
+    ...transformedLines,
+    // transformedBoundary,
+    // newBoundary,
+    // [newCenter],
+  ]);
   // queue.push([[...boundaryPoints, boundaryPoints[0]], ...lines, outline]);
 
-  // await fs.rm(path);
+  await fs.rm(path);
   console.log("Deleted file", path);
 });
 
+let outline = [
+  [0, 0],
+  [WIDTH, 0],
+  [WIDTH, HEIGHT],
+  [0, HEIGHT],
+  [0, 0],
+];
+
+queue.push([outline]);
+
 async function main() {
   if (queue.length === 0) {
+    await haxidraw.penUp();
+    await haxidraw.goTo(HEIGHT, WIDTH);
     setTimeout(main, 1000);
     return;
   }
